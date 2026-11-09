@@ -1,0 +1,446 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Firmador de Liquidaciones</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: panel de pasos a la izquierda, vista previa de la hoja a la derecha; se apila en móvil */
+:root{
+  --bg:#f3f4f7; --surface:#ffffff; --ink:#152036; --muted:#5b6578; --line:#d9dde6;
+  --accent:#1f3c88; --accent-ink:#ffffff; --mark:#f6d21c; --ok:#1d7a4c; --warn:#a14a12;
+  --paper:#ffffff; --paper-ink:#9aa2b2;
+  --f-ui:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1420; --surface:#171e2d; --ink:#e7ebf3; --muted:#9aa4b8; --line:#2a3346;
+  --accent:#8fb0ff; --accent-ink:#0f1420; --mark:#f6d21c; --ok:#5fcf98; --warn:#f0a065;
+  --paper:#f4f5f8; --paper-ink:#8a93a5; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1420; --surface:#171e2d; --ink:#e7ebf3; --muted:#9aa4b8; --line:#2a3346;
+  --accent:#8fb0ff; --accent-ink:#0f1420; --mark:#f6d21c; --ok:#5fcf98; --warn:#f0a065;
+  --paper:#f4f5f8; --paper-ink:#8a93a5; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:24px}
+header h1{font-size:28px;margin:0;letter-spacing:-.01em;text-wrap:balance}
+header h1 span{background:linear-gradient(transparent 62%,var(--mark) 62%);padding:0 2px}
+header p{margin:6px 0 0;color:var(--muted);max-width:62ch}
+.grid{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:24px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.steps{display:grid;gap:14px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;min-width:0}
+.step h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;margin:0;color:var(--muted);display:flex;gap:8px;align-items:center}
+.step h2 b{font-family:var(--f-mono);font-weight:500;color:var(--accent)}
+.drop{border:1.5px dashed var(--line);border-radius:8px;padding:14px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.drop:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.drop strong{color:var(--ink)}
+.sigthumb{display:flex;gap:12px;align-items:center;min-width:0}
+.sigthumb .chk{width:120px;height:48px;border-radius:6px;border:1px solid var(--line);
+  background:repeating-conic-gradient(var(--line) 0 25%,transparent 0 50%) 0 0/10px 10px;display:grid;place-items:center;flex:none}
+.sigthumb img{max-height:44px;max-width:116px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+label.ctl{display:grid;gap:4px;font-size:13px;color:var(--muted);flex:1 1 140px}
+label.ctl span{display:flex;justify-content:space-between}
+label.ctl output{font-family:var(--f-mono);color:var(--ink);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{font:inherit;padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%}
+.check{display:flex;gap:8px;align-items:center;font-size:14px}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.files{list-style:none;margin:0;padding:0;max-height:200px;overflow:auto;border:1px solid var(--line);border-radius:6px}
+.files li{display:flex;justify-content:space-between;gap:10px;padding:6px 10px;font-family:var(--f-mono);font-size:12.5px;border-bottom:1px solid var(--line);min-width:0}
+.files li:last-child{border-bottom:0}
+.files li span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.files li .st{flex:none;color:var(--muted)}
+.files li .st.ok{color:var(--ok)} .files li .st.err{color:var(--warn)}
+.count{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+button{font:inherit;font-weight:600;border-radius:8px;padding:10px 14px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font-weight:500;text-decoration:underline;cursor:pointer}
+.msg{font-size:13.5px;color:var(--muted);min-height:1.2em}
+.msg.ok{color:var(--ok)} .msg.err{color:var(--warn)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .15s}
+.preview{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;display:grid;gap:10px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);min-width:0}
+.preview .head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline}
+.preview h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;margin:0;color:var(--muted)}
+.stage{position:relative;margin:0 auto;width:100%;max-width:560px;aspect-ratio:612/792;background:var(--paper);border-radius:4px;box-shadow:0 1px 3px rgb(0 0 0/.12),0 8px 24px rgb(0 0 0/.08);overflow:hidden;touch-action:none}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%}
+.ghost{position:absolute;inset:0;padding:7% 7%;display:grid;align-content:space-between;color:var(--paper-ink);font-size:11px}
+.ghost .lines div{height:7px;background:color-mix(in srgb,var(--paper-ink) 30%,transparent);border-radius:2px;margin:6px 0}
+.ghost .foot{display:flex;justify-content:space-between;gap:12%;text-align:center}
+.ghost .foot div{flex:1;border-top:1px solid var(--paper-ink);padding-top:4px}
+.sig{position:absolute;cursor:grab;outline:1.5px dashed var(--accent);outline-offset:2px;user-select:none}
+.sig:active{cursor:grabbing}
+.sig img{display:block;width:100%;height:auto;pointer-events:none}
+.sig.placeholder{background:color-mix(in srgb,var(--mark) 35%,transparent);display:grid;place-items:center;font-size:11px;color:#3a3200;aspect-ratio:319/123}
+.hint{font-size:13px;color:var(--muted)}
+.hint code{font-family:var(--f-mono);font-size:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Firmador de <span>liquidaciones</span></h1>
+    <p>Sube la firma una vez y todas las cartas en PDF. La herramienta coloca la firma en el mismo lugar de cada carta y te entrega un ZIP con todas firmadas. Los archivos se procesan en tu navegador, no se suben a ningún servidor.</p>
+  </header>
+
+  <div class="grid">
+    <div class="steps">
+      <section class="step">
+        <h2><b>1</b> Firma</h2>
+        <label class="drop" id="sigDrop">
+          <input type="file" id="sigInput" accept="image/*,.png,.jpg,.jpeg,.jfif,.webp">
+          <strong>Elige la imagen de la firma</strong><br>PNG o JPG, arrástrala aquí o pégala con Ctrl+V
+        </label>
+        <div class="msg err" id="sigErr" hidden></div>
+        <div class="sigthumb" id="sigBox" hidden>
+          <div class="chk"><img id="sigThumb" alt="Firma cargada"></div>
+          <div style="min-width:0">
+            <label class="check"><input type="checkbox" id="clearBg" checked> Quitar fondo blanco</label>
+            <button class="linkbtn" id="sigForget" type="button">Quitar firma guardada</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="step">
+        <h2><b>2</b> Cartas</h2>
+        <label class="drop" id="pdfDrop">
+          <input type="file" id="pdfInput" accept="application/pdf" multiple>
+          <strong>Elige los PDF de las cartas</strong><br>Puedes seleccionar las 48 a la vez
+        </label>
+        <div class="row" style="justify-content:space-between">
+          <span class="count" id="count">0 cartas</span>
+          <button class="linkbtn" id="clearPdfs" type="button" hidden>Vaciar lista</button>
+        </div>
+        <ul class="files" id="fileList" hidden></ul>
+      </section>
+
+      <section class="step">
+        <h2><b>3</b> Ubicación</h2>
+        <p class="hint" style="margin:0">Arrastra la firma en la vista previa hasta la línea de "p. TAI LOY SA". La posición se guarda para la próxima vez.</p>
+        <div class="row">
+          <label class="ctl"><span>Tamaño <output id="wOut"></output></span><input type="range" id="w" min="80" max="300" step="1"></label>
+        </div>
+        <div class="row">
+          <label class="ctl"><span>Firmar en</span>
+            <select id="pages">
+              <option value="last">Última página</option>
+              <option value="first">Primera página</option>
+              <option value="all">Todas las páginas</option>
+            </select>
+          </label>
+          <label class="ctl"><span>Entregar como</span>
+            <select id="outMode">
+              <option value="zip">ZIP con un PDF por carta</option>
+              <option value="merge">Un solo PDF (para imprimir)</option>
+            </select>
+          </label>
+        </div>
+        <button class="linkbtn" id="resetPos" type="button">Volver a la posición recomendada</button>
+      </section>
+
+      <section class="step">
+        <h2><b>4</b> Generar</h2>
+        <button class="primary" id="go" type="button" disabled>Firmar cartas</button>
+        <div class="bar" hidden id="barWrap"><i id="bar"></i></div>
+        <div class="msg" id="msg">Falta cargar la firma y las cartas.</div>
+      </section>
+    </div>
+
+    <aside class="preview">
+      <div class="head">
+        <h2>Vista previa</h2>
+        <span class="count" id="pvName">Hoja de ejemplo</span>
+      </div>
+      <div class="stage" id="stage">
+        <div class="ghost" id="ghost">
+          <div class="lines"><div style="width:40%"></div><div style="width:55%"></div><div style="width:30%;margin-top:18px"></div><div></div><div></div><div style="width:80%"></div><div></div><div style="width:65%"></div></div>
+          <div class="foot"><div>p. TAI LOY SA</div><div>Firma del trabajador</div></div>
+        </div>
+        <canvas id="pv" hidden></canvas>
+        <div class="sig placeholder" id="sig">Firma</div>
+      </div>
+      <p class="hint" style="margin:0" id="pvHint">Cuando cargues las cartas verás aquí la primera, con la firma encima.</p>
+    </aside>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const PAGE_W = 612, PAGE_H = 792;           // A4/carta en puntos, según la plantilla
+  const DEFAULT = { x: 80, y: 46, w: 170 };    // sobre la línea "p. TAI LOY SA"
+  const store = {
+    get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+    set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+    del(k){ try { localStorage.removeItem(k); } catch {} }
+  };
+
+  let pos = Object.assign({}, DEFAULT, store.get("firmador.pos") || {});
+  let sigRaw = null;        // HTMLImageElement original
+  let sigPng = null;        // Uint8Array procesada
+  let sigUrl = null;        // para vista previa
+  let sigRatio = 123/319;
+  let pdfs = [];            // {file, status}
+  let pvPageSize = { w: PAGE_W, h: PAGE_H };
+
+  if (window.pdfjsLib) { try { pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; } catch {} }
+
+  // ---------- Firma ----------
+  function loadImage(src){ return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; }); }
+
+  async function processSig(){
+    if (!sigRaw) return;
+    const c = document.createElement("canvas");
+    c.width = sigRaw.naturalWidth; c.height = sigRaw.naturalHeight;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(sigRaw, 0, 0);
+    if ($("clearBg").checked) {
+      const d = ctx.getImageData(0, 0, c.width, c.height), p = d.data;
+      for (let i = 0; i < p.length; i += 4) {
+        const lum = Math.min(p[i], p[i+1], p[i+2]);
+        if (lum > 235) p[i+3] = 0;
+        else if (lum > 200) p[i+3] = Math.round(p[i+3] * (235 - lum) / 35);
+      }
+      ctx.putImageData(d, 0, 0);
+    }
+    sigRatio = c.height / c.width;
+    sigUrl = c.toDataURL("image/png");
+    const bin = atob(sigUrl.split(",")[1]);
+    sigPng = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) sigPng[i] = bin.charCodeAt(i);
+    $("sigThumb").src = sigUrl;
+    $("sigBox").hidden = false;
+    const s = $("sig");
+    s.classList.remove("placeholder");
+    s.innerHTML = ""; const im = new Image(); im.src = sigUrl; im.alt = ""; s.appendChild(im);
+    s.style.aspectRatio = "";
+    placeSig(); refresh();
+  }
+
+  function sigError(t){ const e = $("sigErr"); e.textContent = t; e.hidden = false; }
+  async function setSigFile(file){
+    $("sigErr").hidden = true;
+    if (!file) return;
+    const isImg = /^image\//.test(file.type) || /\.(png|jpe?g|jfif|webp|bmp|gif)$/i.test(file.name || "");
+    if (!isImg) { sigError("Ese archivo no es una imagen. Usa un PNG o JPG de la firma."); return; }
+    try {
+      const url = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+      sigRaw = await loadImage(url);
+      store.set("firmador.sig", url);
+      await processSig();
+    } catch (e) {
+      sigError("No se pudo abrir la imagen. Prueba guardándola como PNG o JPG, o pégala con Ctrl+V.");
+    }
+  }
+
+  $("sigInput").addEventListener("change", e => { setSigFile(e.target.files[0]); e.target.value = ""; });
+  // Pegar la firma desde el portapapeles (captura de pantalla, imagen copiada)
+  document.addEventListener("paste", e => {
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith("image/"));
+    if (!item) return;
+    e.preventDefault();
+    const f = item.getAsFile();
+    if (f) setSigFile(new File([f], "firma-pegada.png", { type: f.type || "image/png" }));
+  });
+  $("clearBg").addEventListener("change", processSig);
+  $("sigForget").addEventListener("click", () => {
+    store.del("firmador.sig"); sigRaw = sigPng = sigUrl = null;
+    $("sigBox").hidden = true; const s = $("sig"); s.className = "sig placeholder"; s.textContent = "Firma"; s.style.aspectRatio = "319/123";
+    $("sigInput").value = ""; placeSig(); refresh();
+  });
+
+  // ---------- PDFs ----------
+  function renderList(){
+    const ul = $("fileList");
+    ul.innerHTML = "";
+    pdfs.forEach(p => {
+      const li = document.createElement("li");
+      const a = document.createElement("span"); a.textContent = p.file.name;
+      const b = document.createElement("span"); b.className = "st " + (p.cls || ""); b.textContent = p.status || "listo";
+      li.append(a, b); ul.appendChild(li);
+    });
+    ul.hidden = pdfs.length === 0;
+    $("clearPdfs").hidden = pdfs.length === 0;
+    $("count").textContent = pdfs.length === 1 ? "1 carta" : pdfs.length + " cartas";
+  }
+  function addPdfs(list){
+    const arr = [...list].filter(f => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+    const known = new Set(pdfs.map(p => p.file.name + p.file.size));
+    arr.forEach(f => { if (!known.has(f.name + f.size)) pdfs.push({ file: f }); });
+    pdfs.sort((a, b) => a.file.name.localeCompare(b.file.name, "es", { numeric: true }));
+    renderList(); refresh();
+    if (pdfs.length) renderPreview(pdfs[0].file);
+  }
+  $("pdfInput").addEventListener("change", e => { addPdfs(e.target.files); e.target.value = ""; });
+  $("clearPdfs").addEventListener("click", () => { pdfs = []; renderList(); refresh(); $("pv").hidden = true; $("ghost").hidden = false; $("pvName").textContent = "Hoja de ejemplo"; });
+
+  // drag & drop
+  [["sigDrop", f => setSigFile(f[0])], ["pdfDrop", addPdfs]].forEach(([id, fn]) => {
+    const el = $(id);
+    el.addEventListener("dragover", e => { e.preventDefault(); el.classList.add("over"); });
+    el.addEventListener("dragleave", () => el.classList.remove("over"));
+    el.addEventListener("drop", e => { e.preventDefault(); el.classList.remove("over"); fn(e.dataTransfer.files); });
+  });
+
+  // ---------- Vista previa ----------
+  async function renderPreview(file){
+    if (!window.pdfjsLib) return;
+    try {
+      const buf = await file.arrayBuffer();
+      const doc = await pdfjsLib.getDocument({ data: buf }).promise;
+      const mode = $("pages").value;
+      const page = await doc.getPage(mode === "first" ? 1 : doc.numPages);
+      const vp1 = page.getViewport({ scale: 1 });
+      pvPageSize = { w: vp1.width, h: vp1.height };
+      $("stage").style.aspectRatio = vp1.width + "/" + vp1.height;
+      const scale = 2;
+      const vp = page.getViewport({ scale });
+      const cv = $("pv"); cv.width = vp.width; cv.height = vp.height;
+      await page.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+      cv.hidden = false; $("ghost").hidden = true;
+      $("pvName").textContent = file.name;
+      $("pvHint").textContent = "Así quedará cada carta. Si alguna tiene otro formato, revísala después de firmar.";
+      placeSig();
+    } catch (e) {
+      $("pvHint").textContent = "No se pudo mostrar la vista previa de este PDF, pero igual se puede firmar.";
+    }
+  }
+  $("pages").addEventListener("change", () => { if (pdfs.length) renderPreview(pdfs[0].file); });
+
+  function placeSig(){
+    const st = $("stage"), s = $("sig");
+    const k = st.clientWidth / pvPageSize.w;
+    const h = pos.w * sigRatio;
+    s.style.width = (pos.w * k) + "px";
+    s.style.left = (pos.x * k) + "px";
+    s.style.top = ((pvPageSize.h - pos.y - h) * k) + "px";
+    $("w").value = pos.w; $("wOut").textContent = Math.round(pos.w) + " pt";
+  }
+  window.addEventListener("resize", placeSig);
+  $("w").addEventListener("input", e => {
+    const oldH = pos.w * sigRatio; pos.w = +e.target.value;
+    // mantener la base de la firma fija
+    store.set("firmador.pos", pos); placeSig();
+  });
+  $("resetPos").addEventListener("click", () => { pos = Object.assign({}, DEFAULT); store.set("firmador.pos", pos); placeSig(); });
+
+  // arrastrar
+  (() => {
+    const s = $("sig"), st = $("stage");
+    let start = null;
+    s.addEventListener("pointerdown", e => {
+      e.preventDefault(); s.setPointerCapture(e.pointerId);
+      start = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y };
+    });
+    s.addEventListener("pointermove", e => {
+      if (!start) return;
+      const k = st.clientWidth / pvPageSize.w;
+      const h = pos.w * sigRatio;
+      pos.x = Math.max(0, Math.min(pvPageSize.w - pos.w, start.x + (e.clientX - start.px) / k));
+      pos.y = Math.max(0, Math.min(pvPageSize.h - h, start.y - (e.clientY - start.py) / k));
+      placeSig();
+    });
+    const end = () => { if (start) { start = null; store.set("firmador.pos", pos); } };
+    s.addEventListener("pointerup", end); s.addEventListener("pointercancel", end);
+    s.tabIndex = 0;
+    s.setAttribute("aria-label", "Firma: usa las flechas para moverla");
+    s.addEventListener("keydown", e => {
+      const step = e.shiftKey ? 10 : 2;
+      const m = { ArrowLeft:[-step,0], ArrowRight:[step,0], ArrowUp:[0,step], ArrowDown:[0,-step] }[e.key];
+      if (!m) return; e.preventDefault();
+      pos.x += m[0]; pos.y += m[1]; store.set("firmador.pos", pos); placeSig();
+    });
+  })();
+
+  // ---------- Generar ----------
+  function msg(t, cls){ const m = $("msg"); m.textContent = t; m.className = "msg " + (cls || ""); }
+  function refresh(){
+    const ready = sigPng && pdfs.length;
+    $("go").disabled = !ready;
+    if (!sigPng && !pdfs.length) msg("Falta cargar la firma y las cartas.");
+    else if (!sigPng) msg("Falta cargar la firma.");
+    else if (!pdfs.length) msg("Falta cargar las cartas.");
+    else msg("Listo para firmar " + (pdfs.length === 1 ? "1 carta." : pdfs.length + " cartas."));
+    $("go").textContent = ready ? "Firmar " + (pdfs.length === 1 ? "1 carta" : pdfs.length + " cartas") : "Firmar cartas";
+  }
+
+  function targetPages(doc){
+    const all = doc.getPages();
+    const m = $("pages").value;
+    return m === "all" ? all : m === "first" ? [all[0]] : [all[all.length - 1]];
+  }
+
+  async function stamp(bytes){
+    const { PDFDocument } = PDFLib;
+    const doc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    const img = await doc.embedPng(sigPng);
+    const h = pos.w * img.height / img.width;
+    targetPages(doc).forEach(p => p.drawImage(img, { x: pos.x, y: pos.y, width: pos.w, height: h }));
+    return doc;
+  }
+
+  $("go").addEventListener("click", async () => {
+    if (!window.PDFLib) { msg("No cargó el motor de PDF. Recarga la página.", "err"); return; }
+    const btn = $("go"); btn.disabled = true;
+    $("barWrap").hidden = false; $("bar").style.width = "0";
+    const mode = $("outMode").value;
+    const zip = mode === "zip" ? new JSZip() : null;
+    const merged = mode === "merge" ? await PDFLib.PDFDocument.create() : null;
+    let ok = 0, fail = 0;
+    for (let i = 0; i < pdfs.length; i++) {
+      const p = pdfs[i];
+      p.status = "firmando…"; p.cls = ""; renderList();
+      try {
+        const doc = await stamp(await p.file.arrayBuffer());
+        if (zip) {
+          zip.file(p.file.name.replace(/\.pdf$/i, "") + ".pdf", await doc.save());
+        } else {
+          const pages = await merged.copyPages(doc, doc.getPageIndices());
+          pages.forEach(pg => merged.addPage(pg));
+        }
+        p.status = "firmada"; p.cls = "ok"; ok++;
+      } catch (e) {
+        p.status = "no se pudo"; p.cls = "err"; fail++;
+      }
+      renderList();
+      $("bar").style.width = ((i + 1) / pdfs.length * 100) + "%";
+      msg("Firmando " + (i + 1) + " de " + pdfs.length + "…");
+    }
+    if (!ok) { msg("Ninguna carta se pudo firmar. Revisa que sean PDF válidos.", "err"); btn.disabled = false; return; }
+    let data, filename;
+    const stampDate = new Date().toISOString().slice(0, 10);
+    if (zip) { data = await zip.generateAsync({ type: "blob" }); filename = "cartas-firmadas-" + stampDate + ".zip"; }
+    else { data = new Blob([await merged.save()]); filename = "cartas-firmadas-" + stampDate + ".pdf"; }
+    const extra = fail ? " " + fail + " no se pudieron firmar (marcadas en la lista)." : "";
+    try {
+      const dl = window.claude && await window.claude.use("downloads");
+      if (!dl) throw { code: "unavailable" };
+      await dl.save({ filename, data });
+      msg(ok + " cartas firmadas y descargadas." + extra, fail ? "err" : "ok");
+    } catch (e) {
+      if (e && e.code === "declined") msg("Descarga cancelada. Pulsa el botón otra vez para repetir." + extra, "err");
+      else if (e && e.code === "rate_limited") msg("Ya hay una descarga pendiente de confirmar. Espera un momento y vuelve a intentar.", "err");
+      else msg("Esta vista no permite descargar archivos. Abre la herramienta en claude.ai e inténtalo de nuevo.", "err");
+    }
+    btn.disabled = false;
+  });
+
+  // ---------- Inicio ----------
+  const savedSig = store.get("firmador.sig");
+  if (savedSig) loadImage(savedSig).then(i => { sigRaw = i; processSig(); }).catch(() => {});
+  placeSig(); refresh();
+})();
+</script>
+
+</body></html>
